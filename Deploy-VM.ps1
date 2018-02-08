@@ -1,5 +1,5 @@
 param (
-    [switch]$whatif = $false
+    [switch]$whatif
 )
 
 
