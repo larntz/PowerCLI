@@ -1,0 +1,3 @@
+viserver,template,cluster,datastore,name,sql,cpu,ram,disk2,disk3,disk4,disk5,notes,customizationspec,ipaddress,portgroup
+vcsa01,WS2016_Template,CLUSTER01,FC_VMFS_NPROD,LArntzTest01,N,2,4,L:9,S:15,R:5,,Test VM - larntz,WS2016_CustomizationSpec,10.0.0.5,VM Network
+vcsa02,WS2016_Template,CLUSTER02,FC_VMFS_NPROD,LArntzTest03,N,1,4,L:2,S:13,R:7,,Test VM - larntz,WS2016_CustomizationSpec,10.0.0.6,VM Network

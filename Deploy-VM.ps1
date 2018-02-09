@@ -1,10 +1,8 @@
 param (
-    [switch]$whatif
+    [switch]$whatif,
+    [switch]$verbose,
+    [string]$CSV_Deployment_File = "VMDeploy.csv"
 )
-
-##### CSV Location
-$CSV_Deployment_File = "VMDeploy.csv"
-
 
 function check-viserver ($viserver) {
     if (($global:DefaultViServers.count) -And ($global:DefaultViServers.name -eq $viserver) ) {
@@ -149,7 +147,9 @@ foreach ($vm in $VMList) {
     $ResultList += deploy-vm $vm
 }
 
-write-output $ResultList
+if ($verbose) {
+    write-output $ResultList
+}
 
     
     
