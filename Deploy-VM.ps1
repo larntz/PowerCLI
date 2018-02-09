@@ -2,6 +2,9 @@ param (
     [switch]$whatif
 )
 
+##### CSV Location
+$CSV_Deployment_File = "VMDeploy.csv"
+
 
 function check-viserver ($viserver) {
     if (($global:DefaultViServers.count) -And ($global:DefaultViServers.name -eq $viserver) ) {
@@ -13,7 +16,7 @@ function check-viserver ($viserver) {
 }
 
 function vm-exists ($vm) {
-    $result = Get-VM $vm -ErrorAction SilentlyContinue   
+    $result = Get-VM $vm -ErrorAction SilentlyContinue | Select Name
     if ($result) { 
         write-host "`n`tCheck Failed: VM Exists - $vm" -f red
         return $true 
@@ -23,7 +26,7 @@ function vm-exists ($vm) {
 }
 
 function check-cluster ($cluster) {
-    $result = Get-Cluster $cluster -ErrorAction SilentlyContinue   
+    $result = Get-Cluster $cluster -ErrorAction SilentlyContinue | Select Name
     if ($result) { 
         return $true 
     } else { 
@@ -33,8 +36,8 @@ function check-cluster ($cluster) {
 }
 
 function check-datastore ($datastore) {
-    $ds_result = Get-Datastore $datastore -ErrorAction SilentlyContinue
-    $dsc_result = Get-DatastoreCluster $datastore -ErrorAction SilentlyContinue
+    $ds_result = Get-Datastore $datastore -ErrorAction SilentlyContinue | Select Name
+    $dsc_result = Get-DatastoreCluster $datastore -ErrorAction SilentlyContinue | Select Name
     if (($ds_result) -Or ($dsc_result)) { 
         return $true 
     } else { 
@@ -44,7 +47,7 @@ function check-datastore ($datastore) {
 }
 
 function check-template ($template) {
-    $result = Get-template $template -ErrorAction SilentlyContinue   
+    $result = Get-template $template -ErrorAction SilentlyContinue | Select Name
     if ($result) { 
         return $true 
     } else { 
@@ -54,7 +57,7 @@ function check-template ($template) {
 }
 
 function check-oscustomization ($customizationspec) {
-    $result = Get-OSCustomizationSpec $customizationspec -ErrorAction SilentlyContinue   
+    $result = Get-OSCustomizationSpec $customizationspec -ErrorAction SilentlyContinue | Select Name
     if ($result) { 
         return $true 
     } else { 
@@ -65,7 +68,7 @@ function check-oscustomization ($customizationspec) {
 
 
 function deploy-vm ($vm) {
-    write-host -NoNewline `n`nPerforming checks on $vm.name": "  -f yellow
+    write-host -NoNewline `n`nPerforming checks before deployment of $vm.name": "  -f yellow
     ## Perform Checks
     $VIServerCheck = check-viserver $vm.viserver
     $ClusterCheck = check-cluster $vm.cluster
@@ -75,14 +78,42 @@ function deploy-vm ($vm) {
     $VMExists = vm-exists $vm.name
     
     if ( $ClusterCheck -And $DatastoreCheck -And $TemplateCheck -And $OSCustCheck -And -Not $VMExists ) {
-        write-host "PASSED" -f green
-        $nvm_result = New-VM -Server $vm.viserver -Name $vm.name -ResourcePool $vm.cluster -Datastore $vm.datastore -Template $vm.template -OSCustomizationSpec $vm.customizationspec -Description $vm.notes
-        $svm_result = Set-VM -Server $vm.viserver -VM $vm.name -MemoryGB $vm.ram -NumCpu $vm.cpu -Confirm:$false
+        write-host PASSED -f green
+        write-host "`tDeploying" $vm.name -f cyan
+        if ($whatif) {
+            write-host `tNew-VM -Server $vm.viserver -Name $vm.name -ResourcePool $vm.cluster -Datastore $vm.datastore -Template $vm.template -OSCustomizationSpec $vm.customizationspec -Description $vm.notes -f magenta
+            $nvm_result = $true
+            } else {
+                $nvm_result = New-VM -Server $vm.viserver -Name $vm.name -ResourcePool $vm.cluster -Datastore $vm.datastore -Template $vm.template -OSCustomizationSpec $vm.customizationspec -Description $vm.notes
+            }
         
+        if ($nvm_result) {
+            if ($whatif) {
+                write-host `tSet-VM -Server $vm.viserver -MemoryGB $vm.ram -NumCpu $vm.cpu -Confirm:$false -f magenta
+                } else {
+                    $svm_result = $nvm_result | Set-VM -Server $vm.viserver -MemoryGB $vm.ram -NumCpu $vm.cpu -Confirm:$false
+                }
+            
+            foreach ($Pname in ((Get-Member -InputObject $vm -MemberType NoteProperty).name) ) {
+                if (($Pname -like "disk*") -And ($vm.$Pname)) {
+                    $driveLetter,$diskSizeGB = $vm.$Pname.split(':')
+                    write-host "`tAdding a $diskSizeGB GB disk" -f cyan
+                    if ($whatif) {
+                        write-host `tNew-HardDisk -StorageFormat Thin -CapacityGB $diskSizeGB -Confirm:$false -WarningAction silentlyContinue -f magenta
+                        } else {
+                            $nhd_result = $nvm_result | New-HardDisk -StorageFormat Thin -CapacityGB $diskSizeGB -Confirm:$false -WarningAction silentlyContinue
+                        }
+                }
+            }
+        }
+
+       
         if (($nvm_result) -And ($svm_result)) {
             $success = $true
         }
-        else {
+        elseif ($whatif) {
+            $success = "whatif"
+        } else {
             $success = $false
         }
     
@@ -106,13 +137,13 @@ function deploy-vm ($vm) {
 ######
 # Main script block 
 ######
+$VMList = @()
+$ResultList = @()
 
-if (-Not ($VMList = Import-CSV "VMDeployDetails.csv") ) {
-    write-host "File not found: VMDeployDetails.csv" -f red
+if (-Not ($VMList = Import-CSV $CSV_Deployment_File) ) {
+    write-host "File not found: $CSV_Deployment_File" -f red
     exit
     }
-    
-$ResultList = @()
 
 foreach ($vm in $VMList) {
     $ResultList += deploy-vm $vm
