@@ -11,7 +11,7 @@ param(
     [string]$ForUser="$($env:username.ToLower())@$($env:userdnsdomain.ToLower())",
     [datetime]$Date = (Get-Date 21:00),
     [string]$Notify,
-    [string]$SnapshotName = "Create snapshot for $($ForUser) [$($VirtualMachine)]"
+    [string]$ScheduledTaskName = "Create snapshot for $($ForUser) [$($VirtualMachine)]"
 )
 
 Begin
@@ -38,7 +38,7 @@ Begin
         [VMware.Vim.ScheduledTaskManager] $ScheduledTaskManager)
     {
         $ScheduledTaskSpec = New-Object VMware.Vim.ScheduledTaskSpec
-        $ScheduledTaskSpec.Name = $SnapshotName
+        $ScheduledTaskSpec.Name = $ScheduledTaskName
         $ScheduledTaskSpec.Description = "Scheduled snapshot created by $($env:userdomain)\$($env:username) with Schedule-Snapshot.ps1."
         $ScheduledTaskSpec.Enabled = $true
         if ($Notify)
@@ -98,36 +98,36 @@ Process
 
     if ($Create)
     {
-        if ($VMScheduledSnapshots.Info.Name -NotContains $SnapshotName)
+        if ($VMScheduledSnapshots.Info.Name -NotContains $ScheduledTaskName)
         {
             $VMSCheduledSnapshots = New-ScheduledSnapshot $VirtualMachineObject $ScheduledTaskManager
         } 
         else 
         {
-            Write-Host "Scheduled task `"$SnapshotName`" already exists." -ForegroundColor Red
+            Write-Host "Scheduled task `"$ScheduledTaskName`" already exists." -ForegroundColor Red
         }
     } 
     elseif ($Update)
     {
-        if ($VMScheduledSnapshots.Info.Name -Contains $SnapshotName)
+        if ($VMScheduledSnapshots.Info.Name -Contains $ScheduledTaskName)
         {
-            $VMSCheduledSnapshots = Update-ScheduledSnapshot ($VMScheduledSnapshots | Where-Object {$_.Info.Name  -eq $SnapshotName})
+            $VMSCheduledSnapshots = Update-ScheduledSnapshot ($VMScheduledSnapshots | Where-Object {$_.Info.Name  -eq $ScheduledTaskName})
         } 
         else 
         {
-            Write-Host "Scheduled task `"$SnapshotName`" does not exist." -ForegroundColor Red
+            Write-Host "Scheduled task `"$ScheduledTaskName`" does not exist." -ForegroundColor Red
         }   
     }
     elseif($Remove)
     {
-        if ($VMScheduledSnapshots.Info.Name -Contains $SnapshotName)
+        if ($VMScheduledSnapshots.Info.Name -Contains $ScheduledTaskName)
         {
-            Remove-ScheduledSnapshot ($VMScheduledSnapshots | Where-Object {$_.Info.Name  -eq $SnapshotName})
+            Remove-ScheduledSnapshot ($VMScheduledSnapshots | Where-Object {$_.Info.Name  -eq $ScheduledTaskName})
             $VMScheduledSnapshots = Get-ScheduledSnapshots $VirtualMachineObject (Get-ScheduledTaskManager $VirtualMachineObject)
         }
         else 
         {
-            Write-Host "Scheduled task `"$SnapshotName`" does not exist." -ForegroundColor Red
+            Write-Host "Scheduled task `"$ScheduledTaskName`" does not exist." -ForegroundColor Red
         } 
     } 
 }
